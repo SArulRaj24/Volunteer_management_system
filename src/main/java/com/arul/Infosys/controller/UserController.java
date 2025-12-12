@@ -7,6 +7,7 @@ import com.arul.Infosys.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+
 @RestController
 @RequestMapping("/user")
 public class UserController {
@@ -43,7 +44,7 @@ public class UserController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<MessageResponse> logout(@RequestParam String emailId) {
-        return ResponseEntity.ok(service.logout(emailId));
+    public ResponseEntity<MessageResponse> logout(@RequestBody UserRequest req) {
+        return ResponseEntity.ok(service.logout(req));
     }
 }

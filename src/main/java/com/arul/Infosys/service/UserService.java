@@ -1,10 +1,14 @@
 package com.arul.Infosys.service;
 
-import com.arul.Infosys.dto.MessageResponse;
 import com.arul.Infosys.dto.UserRequest;
+import com.arul.Infosys.dto.MessageResponse;
+import com.arul.Infosys.exception.InvalidRoleException;
+import com.arul.Infosys.exception.UserNotFoundException;
+import com.arul.Infosys.exception.WrongPasswordException;
 import com.arul.Infosys.model.UserDetails;
 import com.arul.Infosys.repo.UserDetailsRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserService {
@@ -15,17 +19,30 @@ public class UserService {
         this.repo = repo;
     }
 
-    // Validate role
-    private void validateRole(String role) {
-        if (role == null ||
-                !(role.equalsIgnoreCase("VOLUNTEER") || role.equalsIgnoreCase("ORGANIZER"))) {
-            throw new RuntimeException("Invalid role! Allowed values: VOLUNTEER, ORGANIZER");
+    private void validateRoleOrThrow(String role) {
+        if (role == null) {
+            throw new InvalidRoleException("Role cannot be null. Allowed values: VOLUNTEER, ORGANIZER");
+        }
+        String normalized = role.trim().toUpperCase();
+        if (!"VOLUNTEER".equals(normalized) && !"ORGANIZER".equals(normalized)) {
+            throw new InvalidRoleException("Invalid role! Allowed values: VOLUNTEER, ORGANIZER");
         }
     }
 
-    // Register
+    @Transactional
     public MessageResponse register(UserRequest req) {
-        validateRole(req.getRole());
+        // basic validations
+        if (req.getEmailId() == null || req.getEmailId().isBlank()) {
+            throw new IllegalArgumentException("emailId is required");
+        }
+        if (req.getPassword() == null || req.getPassword().isBlank()) {
+            throw new IllegalArgumentException("password is required");
+        }
+        if (req.getAddress() == null || req.getAddress().isBlank()) {
+            throw new IllegalArgumentException("address is required");
+        }
+        // role validation
+        validateRoleOrThrow(req.getRole());
 
         if (repo.existsById(req.getEmailId())) {
             return new MessageResponse("User already exists!");
@@ -36,63 +53,83 @@ public class UserService {
         user.setPassword(req.getPassword());
         user.setPhone(req.getPhone());
         user.setAddress(req.getAddress());
-        user.setRole(req.getRole().toUpperCase());
+        user.setRole(req.getRole().trim().toUpperCase());
 
         repo.save(user);
-
         return new MessageResponse("Registration successful!");
     }
 
-    // Login
     public MessageResponse login(UserRequest req) {
+        if (req.getEmailId() == null || req.getPassword() == null) {
+            throw new IllegalArgumentException("emailId and password are required");
+        }
         UserDetails user = repo.findById(req.getEmailId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         if (!user.getPassword().equals(req.getPassword())) {
-            throw new RuntimeException("Invalid password");
+            throw new WrongPasswordException("Invalid credentials");
         }
 
         return new MessageResponse("Login successful!");
     }
 
-    // Update (phone + address)
+    @Transactional
     public MessageResponse update(UserRequest req) {
+        if (req.getEmailId() == null) {
+            throw new IllegalArgumentException("emailId is required");
+        }
         UserDetails user = repo.findById(req.getEmailId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        if (req.getPhone() != null)
-            user.setPhone(req.getPhone());
-
-        if (req.getAddress() != null)
-            user.setAddress(req.getAddress());
+        if (req.getPhone() != null) user.setPhone(req.getPhone());
+        if (req.getAddress() != null && !req.getAddress().isBlank()) user.setAddress(req.getAddress());
 
         repo.save(user);
-
         return new MessageResponse("User updated successfully!");
     }
 
-    // Reset password
+    @Transactional
     public MessageResponse resetPassword(UserRequest req) {
+        // expects: emailId, password (old), newPassword
+        if (req.getEmailId() == null) {
+            throw new IllegalArgumentException("emailId is required");
+        }
+        if (req.getPassword() == null) {
+            throw new IllegalArgumentException("old password is required");
+        }
+        if (req.getNewPassword() == null || req.getNewPassword().isBlank()) {
+            throw new IllegalArgumentException("newPassword is required");
+        }
+
         UserDetails user = repo.findById(req.getEmailId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        user.setPassword(req.getPassword());
+        // check old password
+        if (!user.getPassword().equals(req.getPassword())) {
+            throw new WrongPasswordException("Old password is incorrect!");
+        }
+
+        user.setPassword(req.getNewPassword());
         repo.save(user);
-
-        return new MessageResponse("Password reset successful!");
+        return new MessageResponse("Password updated successfully!");
     }
 
-    // Profile
     public UserDetails getProfile(String emailId) {
+        if (emailId == null) {
+            throw new IllegalArgumentException("emailId is required");
+        }
         return repo.findById(emailId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
     }
 
-    // Logout
-    public MessageResponse logout(String emailId) {
-        if (!repo.existsById(emailId))
-            throw new RuntimeException("User not found");
-
+    public MessageResponse logout(UserRequest req) {
+        if (req.getEmailId() == null) {
+            throw new IllegalArgumentException("emailId is required");
+        }
+        if (!repo.existsById(req.getEmailId())) {
+            throw new UserNotFoundException("User not found");
+        }
+        // nothing to change in DB for stateless logout - just respond
         return new MessageResponse("Logout successful!");
     }
 }

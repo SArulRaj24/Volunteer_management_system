@@ -33,6 +33,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleOtherExceptions(Exception ex) {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error");
     }
+    @ExceptionHandler(NotLoggedInException.class)
+    public ResponseEntity<?> handleNotLoggedIn(NotLoggedInException ex) {
+        return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(SessionExpiredException.class)
+    public ResponseEntity<?> handleSessionExpired(SessionExpiredException ex) {
+        return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
 
     private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String message) {
         Map<String, Object> body = new LinkedHashMap<>();

@@ -1,70 +1,102 @@
 package com.arul.Infosys.service;
 
+import com.arul.Infosys.exception.NotLoggedInException;
+import com.arul.Infosys.exception.SessionExpiredException;
 import com.arul.Infosys.model.UserSession;
 import com.arul.Infosys.repo.UserSessionRepository;
-import com.arul.Infosys.exception.SessionExpiredException;
-import com.arul.Infosys.exception.NotLoggedInException;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Service;
 
-import jakarta.servlet.http.HttpSession;
 import java.time.LocalDateTime;
 
 @Service
 public class SessionService {
 
     private final UserSessionRepository sessionRepo;
-    // session TTL in minutes (adjust as desired)
+
+    // session TTL in minutes
     private static final long SESSION_TTL_MINUTES = 120; // 2 hours
 
     public SessionService(UserSessionRepository sessionRepo) {
         this.sessionRepo = sessionRepo;
     }
 
-    /**
-     * Create a DB record for current HttpSession.
-     */
+    /* ============================
+       CREATE SESSION
+       ============================ */
     public UserSession createSession(HttpSession httpSession, String emailId) {
+
         String sid = httpSession.getId();
+
         UserSession s = new UserSession();
         s.setSessionId(sid);
         s.setEmailId(emailId);
         s.setExpiresAt(LocalDateTime.now().plusMinutes(SESSION_TTL_MINUTES));
         s.setActive(true);
+
         sessionRepo.save(s);
         return s;
     }
 
-    /**
-     * Mark session as inactive in DB (logout).
-     */
+    /* ============================
+       LOGOUT / INVALIDATE
+       ============================ */
     public void invalidateSession(String sessionId) {
+
         sessionRepo.findById(sessionId).ifPresent(sess -> {
             sess.setActive(false);
             sessionRepo.save(sess);
         });
     }
 
-    /**
-     * Validate sessionId: exists, active, not expired.
-     * Throws NotLoggedInException or SessionExpiredException on failure.
-     */
+    /* ============================
+       USED BY INTERCEPTOR
+       ============================ */
+    public boolean isSessionValid(String sessionId) {
+
+        if (sessionId == null || sessionId.isBlank()) {
+            return false;
+        }
+
+        UserSession sess = sessionRepo.findById(sessionId).orElse(null);
+
+        if (sess == null || !sess.isActive()) {
+            return false;
+        }
+
+        if (sess.getExpiresAt().isBefore(LocalDateTime.now())) {
+            sess.setActive(false);
+            sessionRepo.save(sess);
+            return false;
+        }
+
+        return true;
+    }
+
+    /* ============================
+       USED BY CONTROLLERS (STRICT)
+       ============================ */
     public UserSession validateSessionOrThrow(HttpSession httpSession) {
+
         if (httpSession == null) {
             throw new NotLoggedInException("No session. Please login first.");
         }
+
         String sid = httpSession.getId();
+
         UserSession sess = sessionRepo.findById(sid)
                 .orElseThrow(() -> new NotLoggedInException("Session not found. Please login."));
 
         if (!sess.isActive()) {
             throw new NotLoggedInException("Session is not active. Please login.");
         }
+
         if (sess.getExpiresAt().isBefore(LocalDateTime.now())) {
-            // mark inactive
             sess.setActive(false);
             sessionRepo.save(sess);
             throw new SessionExpiredException("Session has expired. Please login again.");
         }
+
         return sess;
     }
 }

@@ -5,16 +5,17 @@ import lombok.Data;
 import java.time.LocalDate;
 
 @Data
+public class EventCreateRequestDTO {
 
-public class EventRequestDTO {
-    public Long eventId;
-    public String name;
-    public String description;
-    public String address;
-    public String city;
-    public LocalDate startDate;
-    public LocalDate endDate;
-    public Integer maximumAllowedRegistrations;
-    public String organizer;
-    public Boolean registrationAllowed;
+    private String name;
+    private String description;
+    private String address;
+    private String city;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private Integer maximumAllowedRegistrations;
+    private String organizer;
+    private Boolean registrationAllowed;
+
+    // Getters and Setters
 }

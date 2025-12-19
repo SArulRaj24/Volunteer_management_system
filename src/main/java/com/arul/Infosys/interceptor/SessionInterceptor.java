@@ -24,6 +24,16 @@ public class SessionInterceptor implements HandlerInterceptor {
             Object handler
     ) {
 
+        String path = request.getRequestURI();
+
+        // ✅ EXCLUDED ENDPOINTS (NO SESSION REQUIRED)
+        if (path.startsWith("/user/login")
+                || path.startsWith("/user/register")
+                || path.startsWith("/user/logout")) {
+            return true;
+        }
+
+        // 🔒 SESSION REQUIRED FOR ALL OTHER ENDPOINTS
         String sessionId = request.getHeader("X-SESSION-ID");
 
         if (sessionId == null || sessionId.isBlank()) {

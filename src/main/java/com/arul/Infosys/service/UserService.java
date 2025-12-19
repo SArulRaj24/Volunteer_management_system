@@ -6,9 +6,14 @@ import com.arul.Infosys.exception.InvalidRoleException;
 import com.arul.Infosys.exception.UserNotFoundException;
 import com.arul.Infosys.exception.WrongPasswordException;
 import com.arul.Infosys.model.UserDetails;
+import com.arul.Infosys.model.UserSession;
 import com.arul.Infosys.repo.UserDetailsRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class UserService {
@@ -59,10 +64,11 @@ public class UserService {
         return new MessageResponse("Registration successful!");
     }
 
-    public MessageResponse login(UserRequest req) {
+    public UserDetails login(UserRequest req) {
         if (req.getEmailId() == null || req.getPassword() == null) {
             throw new IllegalArgumentException("emailId and password are required");
         }
+
         UserDetails user = repo.findById(req.getEmailId())
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -70,8 +76,10 @@ public class UserService {
             throw new WrongPasswordException("Invalid credentials");
         }
 
-        return new MessageResponse("Login successful!");
+        // return the authenticated user
+        return user;
     }
+
 
     @Transactional
     public MessageResponse update(UserRequest req) {
@@ -132,4 +140,5 @@ public class UserService {
         // nothing to change in DB for stateless logout - just respond
         return new MessageResponse("Logout successful!");
     }
+
 }

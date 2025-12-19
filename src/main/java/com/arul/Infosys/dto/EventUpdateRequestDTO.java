@@ -16,5 +16,5 @@ public class EventUpdateRequestDTO {
     private Integer maximumAllowedRegistrations;
     private Boolean registrationAllowed;
 
-    // Getters and Setters
+
 }

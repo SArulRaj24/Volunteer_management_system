@@ -14,8 +14,7 @@ public class EventCreateRequestDTO {
     private LocalDate startDate;
     private LocalDate endDate;
     private Integer maximumAllowedRegistrations;
-    private String organizer;
     private Boolean registrationAllowed;
 
-    // Getters and Setters
+
 }

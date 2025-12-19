@@ -12,24 +12,19 @@ import java.time.LocalDateTime;
 @IdClass(RegistrationKey.class)
 public class RegistrationDetails {
 
-    /* ============================
-       COMPOSITE PRIMARY KEY
-       ============================ */
 
     @Id
     @Column(name = "event_id")
-    private Long eventId;   // ✔ MUST match IdClass field name
+    private Long eventId;
 
     @Id
     @Column(name = "volunteer_id")
-    private String volunteerId;  // ✔ MUST match IdClass field name
+    private String volunteerId;
 
-    /* ============================
-       OTHER COLUMNS
-       ============================ */
+
 
     @Column(nullable = false)
-    private String status; // REGISTERED / WITHDRAWN
+    private String status;
 
     @Column(nullable = false)
     private Boolean checkIn;
@@ -42,9 +37,6 @@ public class RegistrationDetails {
     @Column(nullable = false)
     private LocalDateTime modifiedAt;
 
-    /* ============================
-       RELATIONSHIPS (OPTIONAL)
-       ============================ */
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", insertable = false, updatable = false)
@@ -52,5 +44,5 @@ public class RegistrationDetails {
 
     public RegistrationDetails() {}
 
-    // getters & setters
+
 }

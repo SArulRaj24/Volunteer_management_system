@@ -8,22 +8,22 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class SessionService {
 
     private final UserSessionRepository sessionRepo;
 
-    // session TTL in minutes
+
     private static final long SESSION_TTL_MINUTES = 120; // 2 hours
 
     public SessionService(UserSessionRepository sessionRepo) {
         this.sessionRepo = sessionRepo;
     }
 
-    /* ============================
-       CREATE SESSION
-       ============================ */
+
+
     public UserSession createSession(HttpSession httpSession, String emailId) {
 
         String sid = httpSession.getId();
@@ -38,9 +38,6 @@ public class SessionService {
         return s;
     }
 
-    /* ============================
-       LOGOUT / INVALIDATE
-       ============================ */
     public void invalidateSession(String sessionId) {
 
         sessionRepo.findById(sessionId).ifPresent(sess -> {
@@ -49,9 +46,7 @@ public class SessionService {
         });
     }
 
-    /* ============================
-       USED BY INTERCEPTOR
-       ============================ */
+
     public boolean isSessionValid(String sessionId) {
 
         if (sessionId == null || sessionId.isBlank()) {
@@ -73,9 +68,7 @@ public class SessionService {
         return true;
     }
 
-    /* ============================
-       USED BY CONTROLLERS (STRICT)
-       ============================ */
+
     public UserSession validateSessionOrThrow(HttpSession httpSession) {
 
         if (httpSession == null) {
@@ -99,4 +92,22 @@ public class SessionService {
 
         return sess;
     }
+
+    public void logoutByEmail(String emailId) {
+
+        List<UserSession> sessions = sessionRepo.findByEmailId(emailId);
+
+        if (sessions.isEmpty()) {
+            throw new RuntimeException("No session found for email: " + emailId);
+        }
+
+        for (UserSession s : sessions) {
+            s.setActive(false);
+            s.setExpiresAt(LocalDateTime.now());
+        }
+
+        sessionRepo.saveAll(sessions);
+    }
+
+
 }

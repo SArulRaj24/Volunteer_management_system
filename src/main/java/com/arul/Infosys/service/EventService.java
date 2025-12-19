@@ -6,11 +6,11 @@ import java.util.List;
 
 public interface EventService {
 
-    Long createEvent(EventCreateRequestDTO dto);
+    Long createEvent(EventCreateRequestDTO dto, String creatorEmail);
 
     Long updateEvent(EventUpdateRequestDTO dto);
 
-    List<EventResponseDTO> listEvents(Boolean status);
+    List<EventResponseDTO> listEventsByType(String type);
 
     EventResponseDTO getEventById(Long eventId);
 

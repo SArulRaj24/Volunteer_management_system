@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/user")
 public class UserController {
@@ -30,15 +32,19 @@ public class UserController {
 
     @PostMapping("/login")
     public ResponseEntity<MessageResponse> login(@RequestBody UserRequest req, HttpServletRequest request) {
-        // authenticate user
-        MessageResponse resp = userService.login(req);
+        // authenticate and get user object
+        UserDetails user = userService.login(req);
 
-        // create HttpSession and persist it in DB
-        HttpSession httpSession = request.getSession(true); // create if absent
+        // create HttpSession and persist in DB
+        HttpSession httpSession = request.getSession(true);
         sessionService.createSession(httpSession, req.getEmailId());
+
+        // store userId in session for EventController
+        httpSession.setAttribute("USER_ID", user.getEmailId());
 
         return ResponseEntity.ok(new MessageResponse("Login successful; session created"));
     }
+
 
     @PutMapping("/update")
     public ResponseEntity<MessageResponse> update(@RequestBody UserRequest req, HttpServletRequest request) {
@@ -75,15 +81,12 @@ public class UserController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<MessageResponse> logout(@RequestBody UserRequest req, HttpServletRequest request) {
-        HttpSession httpSession = request.getSession(false);
-        if (httpSession != null) {
-            String sid = httpSession.getId();
-            // deactivate DB session
-            sessionService.invalidateSession(sid);
-            // invalidate server session
-            httpSession.invalidate();
-        }
-        return ResponseEntity.ok(new MessageResponse("Logged out successfully"));
+    public ResponseEntity<MessageResponse> logout(@RequestParam String emailId) {
+
+        sessionService.logoutByEmail(emailId);
+
+        return ResponseEntity.ok(
+                new MessageResponse("Logged out successfully")
+        );
     }
 }

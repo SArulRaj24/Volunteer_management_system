@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Data
 @Entity
@@ -14,6 +13,8 @@ public class EventDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long eventId;
+    @Column(name = "created_by", nullable = false)
+    private String createdBy;
 
     private String eventName;
     private String description;
@@ -28,14 +29,15 @@ public class EventDetails {
     private Float rating;
     private Boolean registrationAllowed;
 
-    private LocalDateTime createdAt;
-    private LocalDateTime modifiedAt;
+    private LocalDate createdAt;
+    private LocalDate modifiedAt;
 
     public EventDetails() {}
 
-    // ✔ FULL CONSTRUCTOR – matches DB & fixes your earlier error
+
     public EventDetails(
             Long eventId,
+            String createdBy,
             String eventName,
             String description,
             String address,
@@ -48,6 +50,7 @@ public class EventDetails {
             Boolean registrationAllowed
     ) {
         this.eventId = eventId;
+        this.createdBy=createdBy;
         this.eventName = eventName;
         this.description = description;
         this.address = address;
@@ -58,9 +61,9 @@ public class EventDetails {
         this.eventEndDate = eventEndDate;
         this.rating = rating;
         this.registrationAllowed = registrationAllowed;
-        this.createdAt = LocalDateTime.now();
-        this.modifiedAt = LocalDateTime.now();
+        this.createdAt = LocalDate.now();
+        this.modifiedAt = LocalDate.now();
     }
 
-    // Getters and Setters (generate using IDE)
+
 }

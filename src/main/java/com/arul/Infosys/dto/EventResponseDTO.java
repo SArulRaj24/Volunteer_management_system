@@ -15,8 +15,9 @@ public class EventResponseDTO {
     private LocalDate startDate;
     private LocalDate endDate;
     private Integer volunteersNeeded;
+//    private String type;
     private Boolean registrationAllowed;
     private Float rating;
 
-    // Getters and Setters
+
 }

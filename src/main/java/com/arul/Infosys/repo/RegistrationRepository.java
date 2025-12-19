@@ -11,7 +11,7 @@ import java.util.List;
 public interface RegistrationRepository
         extends JpaRepository<RegistrationDetails, RegistrationKey> {
 
-    // ✅ Correct for @IdClass
+
     List<RegistrationDetails> findByEventId(Long eventId);
 
     List<RegistrationDetails> findByVolunteerId(Long volunteerId);

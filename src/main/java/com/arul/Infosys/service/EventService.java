@@ -17,4 +17,14 @@ public interface EventService {
     void deleteEvent(Long eventId);
 
     String submitFeedback(FeedbackDTO feedbackDTO);
+
+    String registerEvent(Long eventId, String emailId);
+
+    String unregisterEvent(Long eventId, String emailId);
+
+    String checkIn(Long eventId, String emailId);
+
+    EventParticipantsResponse getRegistrations(Long eventId);
+
+    EventParticipantsResponse getParticipants(Long eventId);
 }

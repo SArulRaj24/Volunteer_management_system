@@ -58,4 +58,73 @@ public class EventController {
                 Map.of("Status", "success", "Message", service.submitFeedback(dto))
         );
     }
+
+    /* ---------------- REGISTER ---------------- */
+
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody RegistrationRequest req) {
+
+        String result = service.registerEvent(
+                req.getEventId(),
+                req.getEmailId()
+        );
+
+        return ResponseEntity.ok(
+                Map.of("status", result)
+        );
+    }
+
+    /* ---------------- UNREGISTER ---------------- */
+
+    @PostMapping("/unregister")
+    public ResponseEntity<?> unregister(@RequestBody RegistrationRequest req) {
+
+        String result = service.unregisterEvent(
+                req.getEventId(),
+                req.getEmailId()
+        );
+
+        return ResponseEntity.ok(
+                Map.of("status", result)
+        );
+    }
+
+    /* ---------------- CHECK-IN ---------------- */
+
+    @PostMapping("/checkin")
+    public ResponseEntity<?> checkIn(@RequestBody RegistrationRequest req) {
+
+        String result = service.checkIn(
+                req.getEventId(),
+                req.getEmailId()
+        );
+
+        return ResponseEntity.ok(
+                Map.of("status", result)
+        );
+    }
+
+
+    /* ---------------- REGISTRATIONS ---------------- */
+
+    @GetMapping("/{eventId}/registrations")
+    public ResponseEntity<EventParticipantsResponse> registrations(
+            @PathVariable Long eventId
+    ) {
+        return ResponseEntity.ok(
+                service.getRegistrations(eventId)
+        );
+    }
+
+    /* ---------------- PARTICIPANTS ---------------- */
+
+    @GetMapping("/{eventId}/participants")
+    public ResponseEntity<EventParticipantsResponse> participants(
+            @PathVariable Long eventId
+    ) {
+        return ResponseEntity.ok(
+                service.getParticipants(eventId)
+        );
+    }
 }
+

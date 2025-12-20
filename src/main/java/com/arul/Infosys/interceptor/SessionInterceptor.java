@@ -29,7 +29,8 @@ public class SessionInterceptor implements HandlerInterceptor {
         // ✅ EXCLUDED ENDPOINTS (NO SESSION REQUIRED)
         if (path.startsWith("/user/login")
                 || path.startsWith("/user/register")
-                || path.startsWith("/user/logout")) {
+                || path.startsWith("/user/logout")
+                ||path.endsWith("/event/checkin")) {
             return true;
         }
 

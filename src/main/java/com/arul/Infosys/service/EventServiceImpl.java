@@ -4,10 +4,14 @@ import com.arul.Infosys.dto.*;
 import com.arul.Infosys.exception.EventNotFoundException;
 import com.arul.Infosys.exception.ResourceNotFoundException;
 import com.arul.Infosys.model.EventDetails;
+import com.arul.Infosys.model.RegistrationDetails;
 import com.arul.Infosys.repo.EventRepository;
+import com.arul.Infosys.repo.RegistrationRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -15,9 +19,11 @@ import java.util.stream.Collectors;
 public class EventServiceImpl implements EventService {
 
     private final EventRepository repository;
-
-    public EventServiceImpl(EventRepository repository) {
+    private final RegistrationRepository registrationRepository;
+    public EventServiceImpl(EventRepository repository,RegistrationRepository registrationRepository) {
         this.repository = repository;
+        this.registrationRepository = registrationRepository;
+
     }
 
     @Override
@@ -152,5 +158,115 @@ public class EventServiceImpl implements EventService {
         dto.setRating(event.getRating());
 
         return dto;
+    }
+
+    //register
+
+    @Override
+    public String registerEvent(Long eventId, String emailId) {
+
+        EventDetails event = repository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+
+        if (!event.getRegistrationAllowed()) {
+            throw new IllegalStateException("Registrations closed");
+        }
+
+        registrationRepository
+                .findByVolunteerIdAndEventId(emailId, eventId)
+                .ifPresentOrElse(
+                        reg -> {
+                            if ("REGISTERED".equals(reg.getStatus())) {
+                                throw new IllegalStateException("Already registered");
+                            }
+                            reg.setStatus("REGISTERED");
+                            reg.setModifiedAt(LocalDateTime.now());
+                            registrationRepository.save(reg);
+                        },
+                        () -> {
+                            RegistrationDetails reg = new RegistrationDetails();
+                            reg.setVolunteerId(emailId);
+                            reg.setEventId(eventId);
+                            reg.setStatus("REGISTERED");
+                            reg.setCheckIn(false);
+                            reg.setCreatedAt(LocalDateTime.now());
+                            reg.setModifiedAt(LocalDateTime.now());
+                            registrationRepository.save(reg);
+                        }
+                );
+
+        return "registered";
+    }
+
+    /* ================= UNREGISTER ================= */
+
+    @Override
+    public String unregisterEvent(Long eventId, String emailId) {
+
+        RegistrationDetails reg = registrationRepository
+                .findByVolunteerIdAndEventId(emailId, eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Registration not found"));
+
+        reg.setStatus("WITHDRAWN");
+        reg.setModifiedAt(LocalDateTime.now());
+
+        registrationRepository.save(reg);
+        return "un-registered";
+    }
+
+    /* ================= CHECK-IN ================= */
+
+    @Override
+    public String checkIn(Long eventId, String emailId) {
+
+        if (eventId == null || emailId == null || emailId.isBlank()) {
+            throw new IllegalArgumentException("EventId and EmailId are required");
+        }
+
+        RegistrationDetails reg = registrationRepository
+                .findByVolunteerIdAndEventId(emailId, eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Not registered"));
+
+        if ("WITHDRAWN".equals(reg.getStatus())) {
+            throw new IllegalStateException("User withdrawn");
+        }
+
+        if (Boolean.TRUE.equals(reg.getCheckIn())) {
+            throw new IllegalStateException("Already checked in");
+        }
+
+        reg.setCheckIn(true);
+        registrationRepository.save(reg);
+
+        return "check in successful";
+    }
+
+
+    /* ================= REGISTRATIONS ================= */
+
+    @Override
+    public EventParticipantsResponse getRegistrations(Long eventId) {
+
+        List<String> emails = registrationRepository
+                .findByEventIdAndStatus(eventId, "REGISTERED")
+                .stream()
+                .map(RegistrationDetails::getVolunteerId)
+                .toList();
+
+        return new EventParticipantsResponse(emails.size(), emails);
+    }
+
+    /* ================= PARTICIPANTS ================= */
+
+    @Override
+    public EventParticipantsResponse getParticipants(Long eventId) {
+
+        List<String> emails = registrationRepository
+                .findByEventIdAndCheckInTrue(eventId)
+                .stream()
+                .map(RegistrationDetails::getVolunteerId)
+                .toList();
+
+        return new EventParticipantsResponse(emails.size(), emails);
     }
 }

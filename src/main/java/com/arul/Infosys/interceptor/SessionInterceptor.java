@@ -1,10 +1,10 @@
 package com.arul.Infosys.interceptor;
 
 import com.arul.Infosys.exception.NotLoggedInException;
-import com.arul.Infosys.exception.SessionExpiredException;
 import com.arul.Infosys.service.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -18,31 +18,24 @@ public class SessionInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public boolean preHandle(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            Object handler
-    ) {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
 
         String path = request.getRequestURI();
 
-        // ✅ EXCLUDED ENDPOINTS (NO SESSION REQUIRED)
-        if (path.startsWith("/user/login")
-                || path.startsWith("/user/register")
-                || path.startsWith("/user/logout")
-                ||path.endsWith("/event/checkin")) {
+        // 1. Public Endpoints (No Auth Required)
+        if (path.startsWith("/user/login") || path.startsWith("/user/register")) {
             return true;
         }
 
-        // 🔒 SESSION REQUIRED FOR ALL OTHER ENDPOINTS
-        String sessionId = request.getHeader("X-SESSION-ID");
+        // 2. Strict Session Check for everything else
+        HttpSession session = request.getSession(false); // Do not create new session
 
-        if (sessionId == null || sessionId.isBlank()) {
-            throw new NotLoggedInException("Session ID missing");
+        if (session == null) {
+            throw new NotLoggedInException("Access Denied: No session provided. Please login.");
         }
 
-        if (!sessionService.isSessionValid(sessionId)) {
-            throw new SessionExpiredException("Session expired, please login again");
+        if (!sessionService.isSessionValid(session.getId())) {
+            throw new NotLoggedInException("Access Denied: Session Invalid or Expired.");
         }
 
         return true;

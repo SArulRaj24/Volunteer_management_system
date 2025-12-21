@@ -1,11 +1,15 @@
 package com.arul.Infosys.controller;
 
 import com.arul.Infosys.dto.*;
+import com.arul.Infosys.model.UserDetails;
 import com.arul.Infosys.service.EventService;
 import com.arul.Infosys.service.SessionService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -22,109 +26,112 @@ public class EventController {
         this.sessionService = sessionService;
     }
 
+    // Helper to enforce Roles
+    private UserDetails validateRole(HttpServletRequest req, String requiredRole) {
+        UserDetails user = sessionService.getLoggedInUser(req.getSession(false));
+        if (!user.getRole().equalsIgnoreCase(requiredRole)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied: Requires " + requiredRole + " role.");
+        }
+        return user;
+    }
+
+    private UserDetails getAuthenticatedUser(HttpServletRequest req) {
+        return sessionService.getLoggedInUser(req.getSession(false));
+    }
+
+    /* ================= ORGANIZER ONLY ENDPOINTS ================= */
+
     @PostMapping("/create")
-    public ResponseEntity<?> create(@RequestBody EventCreateRequestDTO dto, HttpSession session) {
-        var sess = sessionService.validateSessionOrThrow(session);
-        String email = sess.getEmailId();
-        Long id = service.createEvent(dto, email);
+    public ResponseEntity<?> create(@RequestBody EventCreateRequestDTO dto, HttpServletRequest req) {
+        UserDetails user = validateRole(req, "ORGANIZER");
+
+        Long id = service.createEvent(dto, user.getEmailId());
         return ResponseEntity.ok(Map.of("Status", "created", "eventId", id));
     }
 
     @PutMapping("/update")
-    public ResponseEntity<?> update(@RequestBody EventUpdateRequestDTO dto) {
+    public ResponseEntity<?> update(@RequestBody EventUpdateRequestDTO dto, HttpServletRequest req) {
+        validateRole(req, "ORGANIZER"); // Only Organizer can update
+
         Long id = service.updateEvent(dto);
         return ResponseEntity.ok(Map.of("Status", "updated", "eventId", id));
     }
 
-    @GetMapping("/list")
-    public List<EventResponseDTO> list(@RequestParam String type) {
-        return service.listEventsByType(type);
-    }
-
-    @GetMapping("/{eventId}")
-    public EventResponseDTO get(@PathVariable Long eventId) {
-        return service.getEventById(eventId);
-    }
-
     @DeleteMapping("/delete")
-    public ResponseEntity<?> delete(@RequestParam Long eventId) {
+    public ResponseEntity<?> delete(@RequestParam Long eventId, HttpServletRequest req) {
+        validateRole(req, "ORGANIZER");
+
         service.deleteEvent(eventId);
         return ResponseEntity.ok(Map.of("Status", "deleted successfully"));
     }
 
-    @PostMapping("/feedback")
-    public ResponseEntity<?> feedback(@RequestBody FeedbackDTO dto) {
-        return ResponseEntity.ok(
-                Map.of("Status", "success", "Message", service.submitFeedback(dto))
-        );
+    @GetMapping("/{eventId}/participants")
+    public ResponseEntity<?> participants(@PathVariable Long eventId, HttpServletRequest req) {
+        validateRole(req, "ORGANIZER");
+
+        return ResponseEntity.ok(service.getParticipants(eventId));
     }
-
-    /* ---------------- REGISTER ---------------- */
-
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegistrationRequest req) {
-
-        String result = service.registerEvent(
-                req.getEventId(),
-                req.getEmailId()
-        );
-
-        return ResponseEntity.ok(
-                Map.of("status", result)
-        );
-    }
-
-    /* ---------------- UNREGISTER ---------------- */
-
-    @PostMapping("/unregister")
-    public ResponseEntity<?> unregister(@RequestBody RegistrationRequest req) {
-
-        String result = service.unregisterEvent(
-                req.getEventId(),
-                req.getEmailId()
-        );
-
-        return ResponseEntity.ok(
-                Map.of("status", result)
-        );
-    }
-
-    /* ---------------- CHECK-IN ---------------- */
-
-    @PostMapping("/checkin")
-    public ResponseEntity<?> checkIn(@RequestBody RegistrationRequest req) {
-
-        String result = service.checkIn(
-                req.getEventId(),
-                req.getEmailId()
-        );
-
-        return ResponseEntity.ok(
-                Map.of("status", result)
-        );
-    }
-
-
-    /* ---------------- REGISTRATIONS ---------------- */
 
     @GetMapping("/{eventId}/registrations")
-    public ResponseEntity<EventParticipantsResponse> registrations(
-            @PathVariable Long eventId
-    ) {
-        return ResponseEntity.ok(
-                service.getRegistrations(eventId)
-        );
+    public ResponseEntity<?> registrations(@PathVariable Long eventId, HttpServletRequest req) {
+        validateRole(req, "ORGANIZER");
+
+        return ResponseEntity.ok(service.getRegistrations(eventId));
     }
 
-    /* ---------------- PARTICIPANTS ---------------- */
+    /* ================= VOLUNTEER ONLY ENDPOINTS ================= */
 
-    @GetMapping("/{eventId}/participants")
-    public ResponseEntity<EventParticipantsResponse> participants(
-            @PathVariable Long eventId
-    ) {
-        return ResponseEntity.ok(
-                service.getParticipants(eventId)
-        );
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody RegistrationRequest dto, HttpServletRequest req) {
+        UserDetails user = validateRole(req, "VOLUNTEER");
+
+        // Ensure request email matches logged in user
+        if(!user.getEmailId().equals(dto.getEmailId())) {
+            return ResponseEntity.status(403).body(Map.of("error", "Cannot register for another user"));
+        }
+
+        String result = service.registerEvent(dto.getEventId(), user.getEmailId());
+        return ResponseEntity.ok(Map.of("status", result));
+    }
+
+    @PostMapping("/unregister")
+    public ResponseEntity<?> unregister(@RequestBody RegistrationRequest dto, HttpServletRequest req) {
+        UserDetails user = validateRole(req, "VOLUNTEER");
+
+        String result = service.unregisterEvent(dto.getEventId(), user.getEmailId());
+        return ResponseEntity.ok(Map.of("status", result));
+    }
+
+    /* ================= SHARED / CONDITIONAL ENDPOINTS ================= */
+
+    @GetMapping("/list")
+    public ResponseEntity<?> list(@RequestParam String type, HttpServletRequest req) {
+        UserDetails user = getAuthenticatedUser(req);
+
+        // RBAC Rule: Volunteers can ONLY view "ongoing" events
+        if ("VOLUNTEER".equalsIgnoreCase(user.getRole())) {
+            if (!"ongoing".equalsIgnoreCase(type)) {
+                return ResponseEntity.status(403)
+                        .body(Map.of("error", "Volunteers can only view 'ongoing' events."));
+            }
+        }
+
+        // Organizers or Volunteers (viewing ongoing) proceed here
+        List<EventResponseDTO> events = service.listEventsByType(type);
+        return ResponseEntity.ok(events);
+    }
+
+    @GetMapping("/{eventId}")
+    public ResponseEntity<EventResponseDTO> get(@PathVariable Long eventId, HttpServletRequest req) {
+        // Both roles can view specific event details
+        getAuthenticatedUser(req);
+        return ResponseEntity.ok(service.getEventById(eventId));
+    }
+
+    @PostMapping("/feedback")
+    public ResponseEntity<?> feedback(@RequestBody FeedbackDTO dto, HttpServletRequest req) {
+        // Any logged in user (typically volunteer) can give feedback
+        getAuthenticatedUser(req);
+        return ResponseEntity.ok(Map.of("Status", "success", "Message", service.submitFeedback(dto)));
     }
 }
-

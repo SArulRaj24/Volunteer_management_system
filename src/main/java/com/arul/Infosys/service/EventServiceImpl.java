@@ -112,11 +112,12 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
+    @Transactional
     public void deleteEvent(Long eventId) {
 
         if (!repository.existsById(eventId))
             throw new EventNotFoundException("Event not found");
-
+        registrationRepository.deleteByEventId(eventId);
         repository.deleteById(eventId);
     }
 

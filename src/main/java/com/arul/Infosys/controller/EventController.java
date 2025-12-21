@@ -134,4 +134,23 @@ public class EventController {
         getAuthenticatedUser(req);
         return ResponseEntity.ok(Map.of("Status", "success", "Message", service.submitFeedback(dto)));
     }
+
+    @PostMapping("/checkin")
+    public ResponseEntity<?> checkIn(@RequestBody RegistrationRequest dto, HttpServletRequest req) {
+        UserDetails user = getAuthenticatedUser(req);
+
+
+        if ("VOLUNTEER".equalsIgnoreCase(user.getRole())) {
+
+            if (dto.getEmailId() != null && !user.getEmailId().equals(dto.getEmailId())) {
+                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized: You cannot check in another user."));
+            }
+
+            dto.setEmailId(user.getEmailId());
+        }
+
+        // Proceed with service call
+        String result = service.checkIn(dto.getEventId(), dto.getEmailId());
+        return ResponseEntity.ok(Map.of("status", result));
+    }
 }

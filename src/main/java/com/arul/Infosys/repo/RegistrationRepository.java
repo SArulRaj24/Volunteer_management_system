@@ -18,6 +18,7 @@ public interface RegistrationRepository
 
     List<RegistrationDetails>
     findByEventIdAndCheckInTrue(Long eventId);
+    void deleteByEventId(Long eventId);
 
     boolean existsByEventIdAndVolunteerId(Long eventId, String volunteerId);
 }

@@ -9,6 +9,7 @@ import com.arul.Infosys.repo.EventRepository;
 import com.arul.Infosys.repo.RegistrationRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import org.thymeleaf.context.Context;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,9 +21,12 @@ public class EventServiceImpl implements EventService {
 
     private final EventRepository repository;
     private final RegistrationRepository registrationRepository;
-    public EventServiceImpl(EventRepository repository,RegistrationRepository registrationRepository) {
+    private final EmailService emailService;
+
+    public EventServiceImpl(EventRepository repository, RegistrationRepository registrationRepository, EmailService emailService) {
         this.repository = repository;
         this.registrationRepository = registrationRepository;
+        this.emailService = emailService;
 
     }
 
@@ -86,15 +90,11 @@ public class EventServiceImpl implements EventService {
         List<EventDetails> events;
 
         switch (type.toLowerCase()) {
-            case "upcoming" ->
-                    events = repository.findByEventStartDateAfter(today);
-            case "ongoing" ->
-                    events = repository
-                            .findByEventStartDateLessThanEqualAndEventEndDateGreaterThanEqual(today, today);
-            case "completed" ->
-                    events = repository.findByEventEndDateBefore(today);
-            default ->
-                    throw new IllegalArgumentException("Use upcoming, ongoing, or completed");
+            case "upcoming" -> events = repository.findByEventStartDateAfter(today);
+            case "ongoing" -> events = repository
+                    .findByEventStartDateLessThanEqualAndEventEndDateGreaterThanEqual(today, today);
+            case "completed" -> events = repository.findByEventEndDateBefore(today);
+            default -> throw new IllegalArgumentException("Use upcoming, ongoing, or completed");
         }
 
         return events.stream()
@@ -111,12 +111,38 @@ public class EventServiceImpl implements EventService {
         return mapToResponse(event);
     }
 
+//    @Override
+//    @Transactional
+//    public void deleteEvent(Long eventId) {
+//
+//        if (!repository.existsById(eventId))
+//            throw new EventNotFoundException("Event not found");
+//        registrationRepository.deleteByEventId(eventId);
+//        repository.deleteById(eventId);
+//    }
+
     @Override
     @Transactional
     public void deleteEvent(Long eventId) {
-
         if (!repository.existsById(eventId))
             throw new EventNotFoundException("Event not found");
+
+        // --- EMAIL TRIGGER START ---
+        // Fetch event details before deleting to get the name/date
+        repository.findById(eventId).ifPresent(event -> {
+            List<RegistrationDetails> participants = registrationRepository.findByEventIdAndStatus(eventId, "REGISTERED");
+
+            for (RegistrationDetails reg : participants) {
+                Context context = new Context();
+                context.setVariable("name", "Volunteer");
+                context.setVariable("eventName", event.getEventName());
+                context.setVariable("eventDate", event.getEventStartDate().toString());
+
+                emailService.sendHtmlEmail(reg.getVolunteerId(), "Event Cancelled - " + event.getEventName(), "cancelled-template", context);
+            }
+        });
+        // --- EMAIL TRIGGER END ---
+
         registrationRepository.deleteByEventId(eventId);
         repository.deleteById(eventId);
     }
@@ -163,18 +189,59 @@ public class EventServiceImpl implements EventService {
 
     //register
 
+//    @Override
+//    public String registerEvent(Long eventId, String emailId) {
+//
+//        EventDetails event = repository.findById(eventId)
+//                .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+//
+//        if (!event.getRegistrationAllowed()) {
+//            throw new IllegalStateException("Registrations closed");
+//        }
+//
+//        registrationRepository
+//                .findByVolunteerIdAndEventId(emailId, eventId)
+//                .ifPresentOrElse(
+//                        reg -> {
+//                            if ("REGISTERED".equals(reg.getStatus())) {
+//                                throw new IllegalStateException("Already registered");
+//                            }
+//                            reg.setStatus("REGISTERED");
+//                            reg.setModifiedAt(LocalDateTime.now());
+//                            registrationRepository.save(reg);
+//                        },
+//                        () -> {
+//                            RegistrationDetails reg = new RegistrationDetails();
+//                            reg.setVolunteerId(emailId);
+//                            reg.setEventId(eventId);
+//                            reg.setStatus("REGISTERED");
+//                            reg.setCheckIn(false);
+//                            reg.setCreatedAt(LocalDateTime.now());
+//                            reg.setModifiedAt(LocalDateTime.now());
+//                            registrationRepository.save(reg);
+//                        }
+//                );
+//
+//        return "registered";
+//    }
+
     @Override
     public String registerEvent(Long eventId, String emailId) {
-
         EventDetails event = repository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
 
+        // 1. Check if the event has explicitly closed registration
         if (!event.getRegistrationAllowed()) {
             throw new IllegalStateException("Registrations closed");
         }
 
-        registrationRepository
-                .findByVolunteerIdAndEventId(emailId, eventId)
+        // 2. NEW FIX: Check if the event has already ended
+        if (event.getEventEndDate().isBefore(java.time.LocalDate.now())) {
+            throw new IllegalStateException("Cannot join: Event has already ended");
+        }
+
+        // ... existing registration logic ...
+        registrationRepository.findByVolunteerIdAndEventId(emailId, eventId)
                 .ifPresentOrElse(
                         reg -> {
                             if ("REGISTERED".equals(reg.getStatus())) {
@@ -196,22 +263,54 @@ public class EventServiceImpl implements EventService {
                         }
                 );
 
+        // ... existing email trigger code ...
+        Context context = new Context();
+        context.setVariable("name", "Volunteer");
+        context.setVariable("eventName", event.getEventName());
+        context.setVariable("eventDate", event.getEventStartDate().toString());
+        context.setVariable("eventLocation", event.getAddress() + ", " + event.getCity());
+
+        emailService.sendHtmlEmail(emailId, "Registration Confirmed - " + event.getEventName(), "register-template", context);
+
         return "registered";
     }
 
-    /* ================= UNREGISTER ================= */
+//    /* ================= UNREGISTER ================= */
+//
+//    @Override
+//    public String unregisterEvent(Long eventId, String emailId) {
+//
+//        RegistrationDetails reg = registrationRepository
+//                .findByVolunteerIdAndEventId(emailId, eventId)
+//                .orElseThrow(() -> new ResourceNotFoundException("Registration not found"));
+//
+//        reg.setStatus("WITHDRAWN");
+//        reg.setModifiedAt(LocalDateTime.now());
+//
+//        registrationRepository.save(reg);
+//        return "un-registered";
+//    }
 
     @Override
     public String unregisterEvent(Long eventId, String emailId) {
-
         RegistrationDetails reg = registrationRepository
                 .findByVolunteerIdAndEventId(emailId, eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration not found"));
 
         reg.setStatus("WITHDRAWN");
         reg.setModifiedAt(LocalDateTime.now());
-
         registrationRepository.save(reg);
+
+        // --- EMAIL TRIGGER START ---
+        repository.findById(eventId).ifPresent(event -> {
+            Context context = new Context();
+            context.setVariable("name", "Volunteer");
+            context.setVariable("eventName", event.getEventName());
+
+            emailService.sendHtmlEmail(emailId, "Registration Cancelled - " + event.getEventName(), "unregister-template", context);
+        });
+        // --- EMAIL TRIGGER END ---
+
         return "un-registered";
     }
 
@@ -270,4 +369,8 @@ public class EventServiceImpl implements EventService {
 
         return new EventParticipantsResponse(emails.size(), emails);
     }
+
+
+
+
 }

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<h3>Event Reminder</h3>
+<p>Hello,</p>
+<p>This is a reminder that <b><span th:text="${eventName}">Event</span></b> is coming up!</p>
+<p><b>Time Left:</b> <span th:text="${timeLeft}">Time</span></p>
+<p><b>Date:</b> <span th:text="${eventDate}">Date</span></p>
+<p><b>Location:</b> <span th:text="${eventLocation}">Location</span></p>
+</body>
+</html>

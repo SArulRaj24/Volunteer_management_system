@@ -25,8 +25,8 @@ public class EventReminderScheduler {
         this.emailService = emailService;
     }
 
-    // Runs every day at 6:00 AM
-    @Scheduled(cron = "0 0 6 * * *")
+    // Runs every day at 9:00 AM
+    @Scheduled(cron = "0 0 9 * * *")
     public void sendReminders() {
         LocalDate today = LocalDate.now();
 

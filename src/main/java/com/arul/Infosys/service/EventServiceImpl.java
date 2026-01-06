@@ -27,6 +27,7 @@ public class EventServiceImpl implements EventService {
         this.repository = repository;
         this.registrationRepository = registrationRepository;
         this.emailService = emailService;
+
     }
 
     @Override
@@ -43,7 +44,8 @@ public class EventServiceImpl implements EventService {
         event.setMaxAllowedRegistrations(dto.getMaximumAllowedRegistrations());
         event.setRegistrationAllowed(dto.getRegistrationAllowed());
         event.setCreatedAt(LocalDate.now());
-        event.setCreatedBy(creatorEmail); // Organizer email is saved here
+        event.setCreatedBy(creatorEmail);
+
 
         return repository.save(event).getEventId();
     }
@@ -109,6 +111,16 @@ public class EventServiceImpl implements EventService {
         return mapToResponse(event);
     }
 
+//    @Override
+//    @Transactional
+//    public void deleteEvent(Long eventId) {
+//
+//        if (!repository.existsById(eventId))
+//            throw new EventNotFoundException("Event not found");
+//        registrationRepository.deleteByEventId(eventId);
+//        repository.deleteById(eventId);
+//    }
+
     @Override
     @Transactional
     public void deleteEvent(Long eventId) {
@@ -118,8 +130,6 @@ public class EventServiceImpl implements EventService {
         // --- EMAIL TRIGGER START ---
         // Fetch event details before deleting to get the name/date
         repository.findById(eventId).ifPresent(event -> {
-
-            // 1. Notify Volunteers
             List<RegistrationDetails> participants = registrationRepository.findByEventIdAndStatus(eventId, "REGISTERED");
 
             for (RegistrationDetails reg : participants) {
@@ -130,14 +140,6 @@ public class EventServiceImpl implements EventService {
 
                 emailService.sendHtmlEmail(reg.getVolunteerId(), "Event Cancelled - " + event.getEventName(), "cancelled-template", context);
             }
-
-            // 2. Notify Organizer (ADDED)
-            Context orgContext = new Context();
-            orgContext.setVariable("name", "Organizer");
-            orgContext.setVariable("eventName", event.getEventName());
-            orgContext.setVariable("eventDate", event.getEventStartDate().toString());
-
-            emailService.sendHtmlEmail(event.getCreatedBy(), "Event Cancelled Successfully - " + event.getEventName(), "cancelled-template", orgContext);
         });
         // --- EMAIL TRIGGER END ---
 
@@ -187,6 +189,42 @@ public class EventServiceImpl implements EventService {
 
     //register
 
+//    @Override
+//    public String registerEvent(Long eventId, String emailId) {
+//
+//        EventDetails event = repository.findById(eventId)
+//                .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+//
+//        if (!event.getRegistrationAllowed()) {
+//            throw new IllegalStateException("Registrations closed");
+//        }
+//
+//        registrationRepository
+//                .findByVolunteerIdAndEventId(emailId, eventId)
+//                .ifPresentOrElse(
+//                        reg -> {
+//                            if ("REGISTERED".equals(reg.getStatus())) {
+//                                throw new IllegalStateException("Already registered");
+//                            }
+//                            reg.setStatus("REGISTERED");
+//                            reg.setModifiedAt(LocalDateTime.now());
+//                            registrationRepository.save(reg);
+//                        },
+//                        () -> {
+//                            RegistrationDetails reg = new RegistrationDetails();
+//                            reg.setVolunteerId(emailId);
+//                            reg.setEventId(eventId);
+//                            reg.setStatus("REGISTERED");
+//                            reg.setCheckIn(false);
+//                            reg.setCreatedAt(LocalDateTime.now());
+//                            reg.setModifiedAt(LocalDateTime.now());
+//                            registrationRepository.save(reg);
+//                        }
+//                );
+//
+//        return "registered";
+//    }
+
     @Override
     public String registerEvent(Long eventId, String emailId) {
         EventDetails event = repository.findById(eventId)
@@ -225,9 +263,7 @@ public class EventServiceImpl implements EventService {
                         }
                 );
 
-        // --- EMAIL TRIGGER START ---
-
-        // 1. Email to Volunteer
+        // ... existing email trigger code ...
         Context context = new Context();
         context.setVariable("name", "Volunteer");
         context.setVariable("eventName", event.getEventName());
@@ -236,21 +272,24 @@ public class EventServiceImpl implements EventService {
 
         emailService.sendHtmlEmail(emailId, "Registration Confirmed - " + event.getEventName(), "register-template", context);
 
-        // 2. Email to Organizer (ADDED)
-        Context orgContext = new Context();
-        orgContext.setVariable("name", "Organizer");
-        orgContext.setVariable("eventName", event.getEventName());
-        orgContext.setVariable("eventDate", event.getEventStartDate().toString());
-        orgContext.setVariable("eventLocation", event.getAddress() + ", " + event.getCity());
-
-        emailService.sendHtmlEmail(event.getCreatedBy(), "New Volunteer Registered - " + event.getEventName(), "register-template", orgContext);
-
-        // --- EMAIL TRIGGER END ---
-
         return "registered";
     }
 
-    /* ================= UNREGISTER ================= */
+//    /* ================= UNREGISTER ================= */
+//
+//    @Override
+//    public String unregisterEvent(Long eventId, String emailId) {
+//
+//        RegistrationDetails reg = registrationRepository
+//                .findByVolunteerIdAndEventId(emailId, eventId)
+//                .orElseThrow(() -> new ResourceNotFoundException("Registration not found"));
+//
+//        reg.setStatus("WITHDRAWN");
+//        reg.setModifiedAt(LocalDateTime.now());
+//
+//        registrationRepository.save(reg);
+//        return "un-registered";
+//    }
 
     @Override
     public String unregisterEvent(Long eventId, String emailId) {
@@ -264,20 +303,11 @@ public class EventServiceImpl implements EventService {
 
         // --- EMAIL TRIGGER START ---
         repository.findById(eventId).ifPresent(event -> {
-
-            // 1. Email to Volunteer
             Context context = new Context();
             context.setVariable("name", "Volunteer");
             context.setVariable("eventName", event.getEventName());
 
             emailService.sendHtmlEmail(emailId, "Registration Cancelled - " + event.getEventName(), "unregister-template", context);
-
-            // 2. Email to Organizer (ADDED)
-            Context orgContext = new Context();
-            orgContext.setVariable("name", "Organizer");
-            orgContext.setVariable("eventName", event.getEventName());
-
-            emailService.sendHtmlEmail(event.getCreatedBy(), "Volunteer Withdrawn - " + event.getEventName(), "unregister-template", orgContext);
         });
         // --- EMAIL TRIGGER END ---
 
@@ -339,4 +369,8 @@ public class EventServiceImpl implements EventService {
 
         return new EventParticipantsResponse(emails.size(), emails);
     }
+
+
+
+
 }

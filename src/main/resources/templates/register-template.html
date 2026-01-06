@@ -1,27 +1,15 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.w3.org/1999/xhtml">
 <head>
     <meta charset="UTF-8">
-    <title>Registration Confirmed</title>
+    <title>Title</title>
 </head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-<div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    <h2 style="color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">Registration Confirmed</h2>
-
-    <p>Hi <span th:text="${name}">Volunteer</span>,</p>
-
-    <p>You have successfully registered for <strong><span th:text="${eventName}">Event Name</span></strong>.</p>
-
-    <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
-        <p style="margin: 5px 0;"><strong>Date:</strong> <span th:text="${eventDate}">Date</span></p>
-        <p style="margin: 5px 0;"><strong>Location:</strong> <span th:text="${eventLocation}">Location</span></p>
-    </div>
-
-    <p>We look forward to seeing you there!</p>
-
-    <p style="font-size: 12px; color: #777; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px;">
-        Volunteer Management System
-    </p>
-</div>
+<body>
+<h3>Event Registration Confirmed</h3>
+<p>Hello,</p>
+<p>You have successfully registered for <b><span th:text="${eventName}">Event</span></b>.</p>
+<p><b>Date:</b> <span th:text="${eventDate}">Date</span></p>
+<p><b>Location:</b> <span th:text="${eventLocation}">Location</span></p>
+<p>See you there!</p>
 </body>
 </html>

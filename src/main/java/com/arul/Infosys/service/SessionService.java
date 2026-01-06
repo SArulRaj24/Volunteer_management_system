@@ -7,11 +7,13 @@ import com.arul.Infosys.model.UserDetails;
 import com.arul.Infosys.model.UserSession;
 import com.arul.Infosys.repo.UserDetailsRepository;
 import com.arul.Infosys.repo.UserSessionRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class SessionService {
@@ -21,23 +23,39 @@ public class SessionService {
 
     // Session valid for 2 hours
     private static final long SESSION_TTL_MINUTES = 120;
+    public static final String AUTH_HEADER = "X-Auth-Token";
 
     public SessionService(UserSessionRepository sessionRepo, UserDetailsRepository userRepo) {
         this.sessionRepo = sessionRepo;
         this.userRepo = userRepo;
     }
 
-    public void createSession(HttpSession httpSession, String emailId) {
-        String sid = httpSession.getId();
+    // Create session and Return the ID string
+    public String createSession(HttpSession httpSession, String emailId) {
+        String sid = httpSession.getId(); // We still use the Container's ID generation for convenience
         UserSession s = new UserSession();
         s.setSessionId(sid);
         s.setEmailId(emailId);
         s.setExpiresAt(LocalDateTime.now().plusMinutes(SESSION_TTL_MINUTES));
         s.setActive(true);
         sessionRepo.save(s);
+        return sid; // Return ID so Controller can send it to Frontend
     }
 
-    // Main validation method used by Interceptor
+    // Helper: Try to get ID from Header first, then Cookie (HttpSession)
+    public String getSessionIdFromRequest(HttpServletRequest req) {
+        // 1. Check Header (For Frontend/Mobile clients)
+        String headerToken = req.getHeader(AUTH_HEADER);
+        if (headerToken != null && !headerToken.isBlank()) {
+            return headerToken;
+        }
+
+        // 2. Check Standard Cookie (For Postman/Browser default)
+        HttpSession session = req.getSession(false);
+        return (session != null) ? session.getId() : null;
+    }
+
+    // Main validation logic
     public boolean isSessionValid(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) return false;
 
@@ -53,24 +71,26 @@ public class SessionService {
                 }).orElse(false);
     }
 
-    // Helper to get Current User and validate session in one go (Used in Controllers)
-    public UserDetails getLoggedInUser(HttpSession httpSession) {
-        if (httpSession == null) {
-            throw new NotLoggedInException("No active session found.");
+    // Refactored: Takes Request, extracts ID, returns User
+    public UserDetails getLoggedInUser(HttpServletRequest req) {
+        String sid = getSessionIdFromRequest(req);
+
+        if (sid == null) {
+            throw new NotLoggedInException("No active session found. Missing Token or Cookie.");
         }
 
-        String sid = httpSession.getId();
         UserSession sess = sessionRepo.findById(sid)
                 .orElseThrow(() -> new NotLoggedInException("Session not found. Please login."));
 
         if (!sess.isActive()) throw new NotLoggedInException("Session inactive.");
+
         if (sess.getExpiresAt().isBefore(LocalDateTime.now())) {
             sess.setActive(false);
             sessionRepo.save(sess);
             throw new SessionExpiredException("Session expired.");
         }
 
-        // Return full User object to check Roles
+        // Return full User object
         return userRepo.findById(sess.getEmailId())
                 .orElseThrow(() -> new UserNotFoundException("User associated with session not found."));
     }

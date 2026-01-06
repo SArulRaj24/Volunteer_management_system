@@ -15,20 +15,22 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-
         registry.addInterceptor(sessionInterceptor)
                 .addPathPatterns(
                         "/user/update",
                         "/user/resetPassword",
                         "/user/profile",
-                        "/user/logout"
+                        "/user/logout",
+                        "/event/**" // Explicitly adding event routes for clarity
                 );
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("*")
-                .allowedMethods("*");
+                .allowedOrigins("http://localhost:3000", "http://localhost:5500") // Replace with your Frontend URL
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true);
     }
 }

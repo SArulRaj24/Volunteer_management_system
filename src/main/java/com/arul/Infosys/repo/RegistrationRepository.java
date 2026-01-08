@@ -20,5 +20,7 @@ public interface RegistrationRepository
     findByEventIdAndCheckInTrue(Long eventId);
     void deleteByEventId(Long eventId);
 
-    boolean existsByEventIdAndVolunteerId(Long eventId, String volunteerId);
+    // --- NEW METHOD ---
+    List<RegistrationDetails> findByVolunteerId(String volunteerId);
+
 }

@@ -339,4 +339,13 @@ public class EventServiceImpl implements EventService {
 
         return new EventParticipantsResponse(emails.size(), emails);
     }
+
+    @Override
+    public List<Long> getRegisteredEventIds(String emailId) {
+        return registrationRepository.findByVolunteerId(emailId)
+                .stream()
+                .filter(reg -> "REGISTERED".equals(reg.getStatus())) // Only active registrations
+                .map(RegistrationDetails::getEventId)
+                .collect(Collectors.toList());
+    }
 }

@@ -101,12 +101,12 @@ public class EventController {
     public ResponseEntity<?> list(@RequestParam String type, HttpServletRequest req) {
         UserDetails user = getAuthenticatedUser(req);
 
-        if ("VOLUNTEER".equalsIgnoreCase(user.getRole())) {
-            if (!"ongoing".equalsIgnoreCase(type)) {
-                return ResponseEntity.status(403)
-                        .body(Map.of("error", "Volunteers can only view 'ongoing' events."));
-            }
-        }
+//        if ("VOLUNTEER".equalsIgnoreCase(user.getRole())) {
+//            if (!"ongoing".equalsIgnoreCase(type)) {
+//                return ResponseEntity.status(403)
+//                        .body(Map.of("error", "Volunteers can only view 'ongoing' events."));
+//            }
+//        }
         List<EventResponseDTO> events = service.listEventsByType(type);
         return ResponseEntity.ok(events);
     }
@@ -135,5 +135,12 @@ public class EventController {
         }
         String result = service.checkIn(dto.getEventId(), dto.getEmailId());
         return ResponseEntity.ok(Map.of("status", result));
+    }
+
+    // --- NEW ENDPOINT ---
+    @GetMapping("/my-registrations")
+    public ResponseEntity<?> getMyRegistrations(HttpServletRequest req) {
+        UserDetails user = getAuthenticatedUser(req);
+        return ResponseEntity.ok(service.getRegisteredEventIds(user.getEmailId()));
     }
 }

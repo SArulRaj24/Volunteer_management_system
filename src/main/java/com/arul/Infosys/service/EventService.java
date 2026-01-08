@@ -27,4 +27,6 @@ public interface EventService {
     EventParticipantsResponse getRegistrations(Long eventId);
 
     EventParticipantsResponse getParticipants(Long eventId);
+
+    List<Long> getRegisteredEventIds(String emailId);
 }
